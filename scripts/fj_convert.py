@@ -75,9 +75,10 @@ def html_to_md(html):
     for tag in soup.find_all("blockquote"):
         tag.name = "div"
     for tag in soup.find_all(["h1", "h2", "h3", "h4", "h5", "h6"]):
-        tag.name = "p"
-        tag.insert(0, "**")
-        tag.append("**")
+        tag.name = "strong"
+        tag.wrap(soup.new_tag("p"))
+    for lab in soup.select("span.lilabel, span.designum, span.fnlabel"):
+        lab.append(" ")
     for tag in soup.find_all(["div", "section"]):
         # block-level containers: make sure contents are separated
         if tag.find(["p", "div", "table", "section"]) is None and tag.get_text(strip=True):
@@ -91,12 +92,19 @@ def html_to_md(html):
     md = re.sub(r"\*\*\s+", "**", md)
     md = re.sub(r"\s+\*\*(\n|$)", r"**\1", md)
     md = re.sub(r"\*\*\*\*", "", md)
+    md = re.sub(r"(?m)^(\*\*[^*\n]+\*\*)(?=[A-Z])", r"\1\n\n", md)
+    md = re.sub(r"(\*\*[^*\n]+\*\*)(?=[^\s*.,;:)])", r"\1 ", md)
     md = re.sub(r"\n{3,}", "\n\n", md)
     return md.strip()
 
 
+def _natkey(s):
+    return [(0, int(t), "") if t.isdigit() else (1, 0, t.lower()) for t in re.findall(r"\d+|\D+", s or "")]
+
+
 def nodes_sorted(lst):
-    return sorted(lst or [], key=lambda x: int(x.get("Position") or 0))
+    """Same order as the laws.gov.fj viewer: file name (numeric-aware), then position."""
+    return sorted(lst or [], key=lambda x: (_natkey(x.get("FileName")), int(x.get("Position") or 0)))
 
 
 def render_tree(lst, depth, out):
